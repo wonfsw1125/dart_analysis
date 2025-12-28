@@ -119,47 +119,98 @@ export async function getEmployeeInfo(
   });
 }
 
+// 기업 코드 캐시 (메모리에 저장)
+let corpCodeCache: Map<string, string> | null = null;
+let cacheExpiry: number = 0;
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24시간
+
 /**
- * 기업 코드 검색 (간단한 버전 - 실제로는 XML 파싱 필요)
+ * DART API에서 전체 기업 코드 목록 다운로드 및 파싱
+ */
+async function downloadCorpCodeList(): Promise<Map<string, string>> {
+  try {
+    console.log('DART API에서 기업 코드 목록 다운로드 중...');
+    
+    const url = `${ENDPOINTS.corpCode}?crtfc_key=${DART_API_KEY}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const xmlText = await response.text();
+    
+    // XML 파싱 (간단한 정규식 방식)
+    const corpMap = new Map<string, string>();
+    const listRegex = /<list>([\s\S]*?)<\/list>/g;
+    const corpCodeRegex = /<corp_code>(.*?)<\/corp_code>/;
+    const corpNameRegex = /<corp_name>(.*?)<\/corp_name>/;
+    
+    let match;
+    while ((match = listRegex.exec(xmlText)) !== null) {
+      const listContent = match[1];
+      const codeMatch = corpCodeRegex.exec(listContent);
+      const nameMatch = corpNameRegex.exec(listContent);
+      
+      if (codeMatch && nameMatch) {
+        const corpCode = codeMatch[1].trim();
+        const corpName = nameMatch[1].trim();
+        
+        // 정규화된 이름으로 저장 (공백 제거, 소문자 변환)
+        const normalizedName = corpName.replace(/\s+/g, '').toLowerCase();
+        corpMap.set(normalizedName, corpCode);
+        
+        // 원본 이름도 저장
+        corpMap.set(corpName, corpCode);
+      }
+    }
+    
+    console.log(`${corpMap.size / 2}개 기업 코드 로드 완료`);
+    return corpMap;
+  } catch (error) {
+    console.error('기업 코드 다운로드 실패:', error);
+    throw error;
+  }
+}
+
+/**
+ * 기업 코드 검색
  */
 export async function searchCompanyCode(companyName: string): Promise<string | null> {
-  // 주요 기업 코드 매핑 (하드코딩)
-  const companyCodeMap: Record<string, string> = {
-    '삼성전자': '00126380',
-    '삼성': '00126380',
-    'SK하이닉스': '00164779',
-    'SK': '00164779',
-    '네이버': '00252450',
-    'NAVER': '00252450',
-    '카카오': '00356370',
-    'Kakao': '00356370',
-    'LG전자': '00101412',
-    'LG': '00101412',
-    '현대자동차': '00164742',
-    '현대차': '00164742',
-    '현대': '00164742',
-    '기아': '00164779',
-    'LG디스플레이': '00103054',
-    'SK텔레콤': '00181515',
-    'KT': '00164529',
-    '포스코': '00164869',
-    '한화': '00121480',
-    '롯데': '00157624',
-  };
-
-  // 정확한 매칭 먼저 시도
-  if (companyCodeMap[companyName]) {
-    return companyCodeMap[companyName];
-  }
-
-  // 부분 매칭 시도
-  for (const [name, code] of Object.entries(companyCodeMap)) {
-    if (name.includes(companyName) || companyName.includes(name)) {
-      return code;
+  try {
+    // 캐시 확인 및 갱신
+    const now = Date.now();
+    if (!corpCodeCache || now > cacheExpiry) {
+      corpCodeCache = await downloadCorpCodeList();
+      cacheExpiry = now + CACHE_DURATION;
     }
+    
+    // 정규화된 검색어 (공백 제거, 소문자)
+    const normalizedSearch = companyName.replace(/\s+/g, '').toLowerCase();
+    
+    // 1. 정확한 매칭 (정규화된 이름)
+    if (corpCodeCache.has(normalizedSearch)) {
+      return corpCodeCache.get(normalizedSearch)!;
+    }
+    
+    // 2. 원본 이름으로 검색
+    if (corpCodeCache.has(companyName)) {
+      return corpCodeCache.get(companyName)!;
+    }
+    
+    // 3. 부분 매칭 (포함 관계)
+    for (const [name, code] of corpCodeCache.entries()) {
+      const normalizedName = name.replace(/\s+/g, '').toLowerCase();
+      if (normalizedName.includes(normalizedSearch) || normalizedSearch.includes(normalizedName)) {
+        return code;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('기업 코드 검색 오류:', error);
+    return null;
   }
-
-  return null;
 }
 
 /**
