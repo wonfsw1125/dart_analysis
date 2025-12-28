@@ -67,7 +67,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart
           data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+          margin={{ top: 20, right: 30, left: 60, bottom: 20 }}
         >
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis
@@ -81,7 +81,8 @@ export default function RevenueChart({ data }: RevenueChartProps) {
             label={{
               value: '금액 (조원)',
               angle: -90,
-              position: 'insideLeft',
+              position: 'left',
+              offset: 10,
               style: { textAnchor: 'middle' },
             }}
           />

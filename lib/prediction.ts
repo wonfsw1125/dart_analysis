@@ -85,9 +85,20 @@ export function predictEmployeeCount(
   const { nextValue, trend } = predictNextValue(years, employees);
   const currentCount = employees[employees.length - 1] || 0;
 
+  // 순증가/감소
+  const netGrowth = Math.round(nextValue - currentCount);
+  
+  // 평균 이직률 15% 적용
+  const turnoverRate = 0.15;
+  const expectedTurnover = Math.round(currentCount * turnoverRate);
+  
+  // 총 채용 예상 = 순증가 + 퇴사자 대체
+  // 직원수가 감소하는 경우에도 최소 유지 채용은 발생
+  const totalHiring = netGrowth + expectedTurnover;
+
   return {
     predictedCount: Math.round(nextValue),
-    expectedHiring: Math.round(nextValue - currentCount),
+    expectedHiring: totalHiring,
     trend,
   };
 }
@@ -256,11 +267,23 @@ export function generateForecastSummary(
   // 주요 인사이트
   const keyInsights: string[] = [];
 
-  if (Math.abs(employeeGrowthRate) > 5) {
+  if (prediction.expectedHiring > 0) {
+    const currentCount = lastData.totalEmployees;
+    const turnoverCount = Math.round(currentCount * 0.15);
+    const netGrowth = prediction.predictedEmployees - currentCount;
+    
+    if (netGrowth > 0) {
+      keyInsights.push(
+        `총 ${prediction.expectedHiring.toLocaleString()}명 채용 예상 (순증 ${netGrowth.toLocaleString()}명 + 퇴사 대체 약 ${turnoverCount.toLocaleString()}명)`
+      );
+    } else {
+      keyInsights.push(
+        `약 ${prediction.expectedHiring.toLocaleString()}명 채용 예상 (퇴사자 대체 중심)`
+      );
+    }
+  } else if (Math.abs(employeeGrowthRate) > 5) {
     keyInsights.push(
-      employeeGrowthRate > 0
-        ? `인력 확대 예상 (약 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 채용)`
-        : `인력 구조조정 가능성 (약 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 감소)`
+      `인력 구조조정 가능성 (약 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 감소)`
     );
   }
 

@@ -22,7 +22,7 @@ export default function DataTable({ data, companyName }: DataTableProps) {
     return num.toLocaleString('ko-KR');
   };
 
-  const formatRate = (rate: number | null): JSX.Element => {
+  const formatRate = (rate: number | null) => {
     if (rate === null || rate === undefined) {
       return <span className="text-gray-400">-</span>;
     }

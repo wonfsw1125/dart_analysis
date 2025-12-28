@@ -37,13 +37,13 @@ export default function HiringPrediction({
       year: `${d.year}년`,
       실제직원수: d.totalEmployees,
       예측직원수: null as number | null,
-      예상채용수: null as number | null,
+      총채용예상: null as number | null,
     })),
     ...predictions.map((p) => ({
       year: `${p.year}년`,
       실제직원수: null as number | null,
       예측직원수: p.predictedEmployees,
-      예상채용수: p.expectedHiring,
+      총채용예상: p.expectedHiring,
     })),
   ];
 
@@ -67,7 +67,7 @@ export default function HiringPrediction({
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart
           data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+          margin={{ top: 20, right: 60, left: 60, bottom: 20 }}
         >
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis
@@ -83,7 +83,8 @@ export default function HiringPrediction({
             label={{
               value: '직원수 (명)',
               angle: -90,
-              position: 'insideLeft',
+              position: 'left',
+              offset: 10,
               style: { textAnchor: 'middle' },
             }}
           />
@@ -93,9 +94,10 @@ export default function HiringPrediction({
             tick={{ fill: 'currentColor' }}
             className="text-gray-600 dark:text-gray-400"
             label={{
-              value: '예상 채용수 (명)',
+              value: '총 채용 예상 (명)',
               angle: 90,
-              position: 'insideRight',
+              position: 'right',
+              offset: 10,
               style: { textAnchor: 'middle' },
             }}
           />
@@ -132,10 +134,10 @@ export default function HiringPrediction({
             connectNulls={false}
           />
           
-          {/* 예상 채용수 (막대) */}
+          {/* 총 채용 예상 (막대) */}
           <Bar
             yAxisId="right"
-            dataKey="예상채용수"
+            dataKey="총채용예상"
             fill={prediction.expectedHiring >= 0 ? '#10b981' : '#ef4444'}
             opacity={0.8}
             radius={[8, 8, 0, 0]}
@@ -152,18 +154,33 @@ export default function HiringPrediction({
       </ResponsiveContainer>
 
       {/* 예측 요약 */}
-      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-        <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
-          {prediction.year}년 예상 직원수:{' '}
-          <span className="font-bold">
-            {prediction.predictedEmployees.toLocaleString()}명
-          </span>
-        </p>
-        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-          {prediction.expectedHiring >= 0
-            ? `약 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 채용 예상`
-            : `약 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 감소 예상`}
-        </p>
+      <div className="mt-4 space-y-3">
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+            {prediction.year}년 예상 직원수:{' '}
+            <span className="font-bold">
+              {prediction.predictedEmployees.toLocaleString()}명
+            </span>
+          </p>
+          <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+            {prediction.expectedHiring >= 0
+              ? `총 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 채용 예상 (이직률 15% 반영)`
+              : `약 ${Math.abs(prediction.expectedHiring).toLocaleString()}명 감소 예상`}
+          </p>
+        </div>
+        
+        {prediction.expectedHiring > 0 && historicalData.length > 0 && (
+          <div className="p-3 bg-gray-50 dark:bg-gray-700/20 rounded text-xs text-gray-600 dark:text-gray-400">
+            <p className="font-medium mb-1">💡 채용 예측 산출 방식</p>
+            <p>
+              • 순증가: {(prediction.predictedEmployees - historicalData[historicalData.length - 1].totalEmployees).toLocaleString()}명
+              <br />
+              • 퇴사 대체 (평균 이직률 15%): 약 {Math.round(historicalData[historicalData.length - 1].totalEmployees * 0.15).toLocaleString()}명
+              <br />
+              • <strong>총 채용 예상: {prediction.expectedHiring.toLocaleString()}명</strong>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
